@@ -1,9 +1,9 @@
 package service
 
 import (
-	"Rate_Limiter/internal/config"
-	"Rate_Limiter/internal/repository"
 	"fmt"
+	"github.com/valms/fc_rate_limiter/internal/config"
+	"github.com/valms/fc_rate_limiter/internal/repository"
 )
 
 type RateLimiter struct {

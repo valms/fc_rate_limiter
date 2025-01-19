@@ -1,0 +1,484 @@
+diff --git a/.env b/.env
+index e69de29..4d8c5fd 100644
+--- a/.env
++++ b/.env
+@@ -0,0 +1,12 @@
++
++REDIS_HOST=localhost
++REDIS_PORT=6379
++
++
++IP_LIMIT=5
++
++API_KEY_LIMIT=10
++
++BLOCK_DURATION=300
++
++SERVER_PORT=8080
+\ No newline at end of file
+diff --git a/.gitignore b/.gitignore
+index e69de29..723ef36 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -0,0 +1 @@
++.idea
+\ No newline at end of file
+diff --git a/Dockerfile b/Dockerfile
+index f425e10..d143707 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,4 +1,20 @@
+-FROM ubuntu:latest
+-LABEL authors="fjunior"
++FROM golang:1.22-alpine AS builder
+ 
+-ENTRYPOINT ["top", "-b"]
+\ No newline at end of file
++WORKDIR /app
++
++COPY . .
++
++RUN go mod download
++
++RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/main.go
++
++FROM alpine:latest
++
++WORKDIR /root/
++
++COPY --from=builder /app/main .
++COPY --from=builder /app/.env .env
++
++EXPOSE 8080
++
++CMD ["./main"]
+\ No newline at end of file
+diff --git a/cmd/main.go b/cmd/main.go
+index 1d619dd..6f717f5 100644
+--- a/cmd/main.go
++++ b/cmd/main.go
+@@ -1 +1,17 @@
+-package cmd
++package main
++
++import (
++	"Rate_Limiter/internal/config"
++	"Rate_Limiter/internal/server"
++	"log"
++)
++
++func main() {
++
++	loadConfig := config.LoadConfig()
++
++	if err := server.SetupWebServer(loadConfig).Listen(":" + loadConfig.Server.Port); err != nil {
++		log.Fatal(err)
++	}
++
++}
+diff --git a/docker-compose.yml b/docker-compose.yml
+index e69de29..927955a 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -0,0 +1,27 @@
++services:
++    redis:
++        image: redis:alpine3.21
++        container_name: rate_redias
++        ports:
++            - "6379:6379"
++        networks:
++            - rate-limiter-network
++
++    rate-backend:
++        build:
++            context: .
++            dockerfile: Dockerfile
++        container_name: rate-backend
++        ports:
++            - "8080:8080"
++        depends_on:
++            - redis
++        networks:
++            - rate-limiter-network
++        environment:
++            - REDIS_HOST=redis
++            - REDIS_PORT=6379
++
++networks:
++    rate-limiter-network:
++        driver: bridge
+\ No newline at end of file
+diff --git a/go.mod b/go.mod
+index c54ed4c..a7c7186 100644
+--- a/go.mod
++++ b/go.mod
+@@ -1,3 +1,25 @@
+ module Rate_Limiter
+ 
+ go 1.22
++
++require (
++	github.com/gofiber/fiber/v2 v2.52.6
++	github.com/joho/godotenv v1.5.1
++	github.com/redis/go-redis/v9 v9.7.0
++)
++
++require (
++	github.com/andybalholm/brotli v1.1.0 // indirect
++	github.com/cespare/xxhash/v2 v2.2.0 // indirect
++	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
++	github.com/google/uuid v1.6.0 // indirect
++	github.com/klauspost/compress v1.17.9 // indirect
++	github.com/mattn/go-colorable v0.1.13 // indirect
++	github.com/mattn/go-isatty v0.0.20 // indirect
++	github.com/mattn/go-runewidth v0.0.16 // indirect
++	github.com/rivo/uniseg v0.2.0 // indirect
++	github.com/valyala/bytebufferpool v1.0.0 // indirect
++	github.com/valyala/fasthttp v1.51.0 // indirect
++	github.com/valyala/tcplisten v1.0.0 // indirect
++	golang.org/x/sys v0.28.0 // indirect
++)
+diff --git a/internal/cache/redis_client.go b/internal/cache/redis_client.go
+index 72f1880..2ee3214 100644
+--- a/internal/cache/redis_client.go
++++ b/internal/cache/redis_client.go
+@@ -1,4 +1,4 @@
+-package client
++package cache
+ 
+ import (
+ 	"context"
+diff --git a/internal/config/config.go b/internal/config/config.go
+index d912156..e66b1da 100644
+--- a/internal/config/config.go
++++ b/internal/config/config.go
+@@ -1 +1,73 @@
+ package config
++
++import (
++	"os"
++	"strconv"
++)
++
++// LoadConfig carrega todas as configurações do ambiente
++func LoadConfig() *Config {
++	return &Config{
++		Redis: RedisConfig{
++			Host: getEnv("REDIS_HOST", "localhost"),
++			Port: getEnv("REDIS_PORT", "6379"),
++		},
++		RateLimit: RateLimitConfig{
++			IPLimit:       getEnvInt("IP_LIMIT", 5),
++			APIKeyLimit:   getEnvInt("API_KEY_LIMIT", 10),
++			BlockDuration: getEnvInt("BLOCK_DURATION", 300),
++			WindowSize:    getEnvInt("WINDOW_SIZE", 20),
++		},
++		Server: ServerConfig{
++			Port: getEnv("SERVER_PORT", "8080"),
++		},
++	}
++}
++
++// getEnvInt obtém uma variável de ambiente e converte para int.
++// Se a variável não existir ou não puder ser convertida, retorna o valor padrão
++func getEnvInt(key string, defaultValue int) int {
++	strValue := os.Getenv(key)
++	if strValue == "" {
++		return defaultValue
++	}
++
++	value, err := strconv.Atoi(strValue)
++	if err != nil {
++		return defaultValue
++	}
++
++	return value
++}
++
++// getEnv obtém uma variável de ambiente ou retorna o valor padrão
++func getEnv(key, defaultValue string) string {
++	value := os.Getenv(key)
++	if value == "" {
++		return defaultValue
++	}
++	return value
++}
++
++type Config struct {
++	Redis     RedisConfig
++	RateLimit RateLimitConfig
++	Server    ServerConfig
++}
++
++type RedisConfig struct {
++	Host     string
++	Port     string
++	Password string
++}
++
++type RateLimitConfig struct {
++	IPLimit       int
++	APIKeyLimit   int
++	BlockDuration int
++	WindowSize    int
++}
++
++type ServerConfig struct {
++	Port string
++}
+diff --git a/internal/repository/operations.go b/internal/repository/operations.go
+index 6dbfb52..1e6f647 100644
+--- a/internal/repository/operations.go
++++ b/internal/repository/operations.go
+@@ -1,9 +1,9 @@
+ package repository
+ 
+-type DataOperation interface {
+-	Increment(key string) (int, error)
+-	GetCount(key string) (int, error)
+-	Expire(key string, seconds int) error
+-	Exists(key string) (bool, error)
++type RateLimitRepository interface {
++	IncrementCounter(key string) (int, error)
++	GetCounter(key string) (int, error)
++	SetExpiration(key string, seconds int) error
++	KeyExists(key string) (bool, error)
+ 	Close() error
+ }
+diff --git a/internal/repository/redis/repository.go b/internal/repository/redis/repository.go
+index a1aaf8f..482b90d 100644
+--- a/internal/repository/redis/repository.go
++++ b/internal/repository/redis/repository.go
+@@ -7,12 +7,12 @@ import (
+ 	"time"
+ )
+ 
+-type Operations struct {
++type RedisRepository struct {
+ 	ctx         context.Context
+ 	redisClient *redis.Client
+ }
+ 
+-func NewRedisOperations(ctx context.Context, redisClient *redis.Client) (*Operations, error) {
++func NewRedisOperations(ctx context.Context, redisClient *redis.Client) (*RedisRepository, error) {
+ 	if ctx == nil {
+ 		return nil, fmt.Errorf("context cannot be nil")
+ 	}
+@@ -20,14 +20,14 @@ func NewRedisOperations(ctx context.Context, redisClient *redis.Client) (*Operat
+ 		return nil, fmt.Errorf("redis cache cannot be nil")
+ 	}
+ 
+-	return &Operations{
++	return &RedisRepository{
+ 		ctx:         ctx,
+ 		redisClient: redisClient,
+ 	}, nil
+ }
+ 
+ // GetCount retorna o valor atual do contador
+-func (r *Operations) GetCount(key string) (int, error) {
++func (r *RedisRepository) GetCounter(key string) (int, error) {
+ 	if key == "" {
+ 		return 0, fmt.Errorf("key cannot be empty")
+ 	}
+@@ -44,7 +44,7 @@ func (r *Operations) GetCount(key string) (int, error) {
+ }
+ 
+ // Increment incrementa o valor da chave em 1
+-func (r *Operations) Increment(key string) (int, error) {
++func (r *RedisRepository) IncrementCounter(key string) (int, error) {
+ 	if key == "" {
+ 		return 0, fmt.Errorf("key cannot be empty")
+ 	}
+@@ -57,7 +57,7 @@ func (r *Operations) Increment(key string) (int, error) {
+ }
+ 
+ // Expire define um tempo de expiração para a chave
+-func (r *Operations) Expire(key string, seconds int) error {
++func (r *RedisRepository) SetExpiration(key string, seconds int) error {
+ 	if key == "" {
+ 		return fmt.Errorf("key cannot be empty")
+ 	}
+@@ -82,7 +82,7 @@ func (r *Operations) Expire(key string, seconds int) error {
+ }
+ 
+ // Exists verifica se uma chave existe
+-func (r *Operations) Exists(key string) (bool, error) {
++func (r *RedisRepository) KeyExists(key string) (bool, error) {
+ 	if key == "" {
+ 		return false, fmt.Errorf("key cannot be empty")
+ 	}
+@@ -96,7 +96,7 @@ func (r *Operations) Exists(key string) (bool, error) {
+ }
+ 
+ // Close fecha a conexão com o Redis
+-func (r *Operations) Close() error {
++func (r *RedisRepository) Close() error {
+ 	if r.redisClient == nil {
+ 		return nil
+ 	}
+diff --git a/internal/server/middleware/limiter.go b/internal/server/middleware/limiter.go
+index c870d7c..e5bc48b 100644
+--- a/internal/server/middleware/limiter.go
++++ b/internal/server/middleware/limiter.go
+@@ -1 +1,26 @@
+ package middleware
++
++import (
++	"Rate_Limiter/internal/service"
++	"github.com/gofiber/fiber/v2"
++)
++
++type Config struct {
++}
++
++func Limiter(rate *service.RateLimiter) fiber.Handler {
++	return func(c *fiber.Ctx) error {
++		ip := c.IP()
++
++		ipBlocked, _ := rate.IsRateLimitByIP(ip)
++
++		if ipBlocked {
++			return c.Status(429).JSON(&fiber.Map{
++				"message": "you have reached the maximum number of requests or actions allowed within a certain time frame",
++			})
++		}
++
++		return c.Next()
++
++	}
++}
+diff --git a/internal/server/web.go b/internal/server/web.go
+index abb4e43..49bb27a 100644
+--- a/internal/server/web.go
++++ b/internal/server/web.go
+@@ -1 +1,31 @@
+ package server
++
++import (
++	"Rate_Limiter/internal/cache"
++	"Rate_Limiter/internal/config"
++	"Rate_Limiter/internal/repository/redis"
++	"Rate_Limiter/internal/server/middleware"
++	"Rate_Limiter/internal/service"
++	"context"
++	"github.com/gofiber/fiber/v2"
++	"net/http"
++)
++
++func SetupWebServer(loadConfig *config.Config) *fiber.App {
++	app := fiber.New()
++	redisAddr := loadConfig.Redis.Host + ":" + loadConfig.Redis.Port
++
++	redisClient, _ := cache.NewRedisClient(redisAddr, loadConfig.Redis.Port)
++
++	operations, _ := redis.NewRedisOperations(context.Background(), redisClient)
++
++	rate, _ := service.NewLimiterService(operations, loadConfig)
++
++	app.Use(middleware.Limiter(rate))
++
++	app.Get("/", func(c *fiber.Ctx) error {
++		return c.SendStatus(http.StatusOK)
++	})
++
++	return app
++}
+diff --git a/internal/service/LimiterService.go b/internal/service/LimiterService.go
+index e69de29..29ef429 100644
+--- a/internal/service/LimiterService.go
++++ b/internal/service/LimiterService.go
+@@ -0,0 +1,92 @@
++package service
++
++import (
++	"Rate_Limiter/internal/config"
++	"Rate_Limiter/internal/repository"
++	"fmt"
++)
++
++type RateLimiter struct {
++	repository    repository.RateLimitRepository
++	ipLimit       int
++	apiKeyLimit   int
++	blockDuration int
++}
++
++func NewLimiterService(repo repository.RateLimitRepository, loadConfig *config.Config) (*RateLimiter, error) {
++	return &RateLimiter{
++		repository:    repo,
++		ipLimit:       loadConfig.RateLimit.IPLimit,
++		apiKeyLimit:   loadConfig.RateLimit.APIKeyLimit,
++		blockDuration: loadConfig.RateLimit.BlockDuration,
++	}, nil
++}
++
++func (l *RateLimiter) IsRateLimitByIP(ip string) (bool, error) {
++	blocked, err := l.repository.KeyExists(l.blockedKey(ip))
++	fmt.Printf("[Rate Limiter] IP %s - Block Status: %v\n", ip, blocked)
++
++	if err != nil {
++		return true, fmt.Errorf("error checking block status: %w", err)
++	}
++
++	if blocked {
++		fmt.Printf("[Rate Limiter] IP %s is BLOCKED for next %d seconds\n",
++			ip, l.blockDuration)
++		return true, nil
++	}
++
++	currentCount, err := l.repository.GetCounter(l.requestKey(ip))
++	if err != nil {
++		return false, fmt.Errorf("error getting current count: %w", err)
++	}
++
++	fmt.Printf("[Rate Limiter] IP %s - Current Usage: %d/%d\n",
++		ip, currentCount, l.ipLimit)
++
++	if currentCount >= l.ipLimit {
++		fmt.Printf("[Rate Limiter] IP %s exceeded limit. Blocking for %d seconds\n",
++			ip, l.blockDuration)
++
++		err = l.repository.SetExpiration(l.blockedKey(ip), l.blockDuration)
++		if err != nil {
++			return false, fmt.Errorf("error setting block: %w", err)
++		}
++		return true, nil
++	}
++
++	newCount, err := l.repository.IncrementCounter(l.requestKey(ip))
++	if err != nil {
++		return false, fmt.Errorf("error incrementing counter: %w", err)
++	}
++
++	fmt.Printf("[Rate Limiter] IP %s - Updated Usage: %d/%d\n",
++		ip, newCount, l.ipLimit)
++
++	if newCount == 1 {
++		fmt.Printf("[Rate Limiter] IP %s - First request, setting window expiration\n", ip)
++		if err := l.repository.SetExpiration(l.requestKey(ip), 20); err != nil {
++			return false, fmt.Errorf("error setting window: %w", err)
++		}
++	}
++
++	if newCount >= l.ipLimit {
++		fmt.Printf("[Rate Limiter] IP %s reached limit. Blocking for %d seconds\n",
++			ip, l.blockDuration)
++
++		if err := l.repository.SetExpiration(l.blockedKey(ip), l.blockDuration); err != nil {
++			return false, fmt.Errorf("error setting block: %w", err)
++		}
++		return true, nil
++	}
++
++	return false, nil
++}
++
++func (l *RateLimiter) requestKey(identifier string) string {
++	return fmt.Sprintf("req_count:%s", identifier)
++}
++
++func (l *RateLimiter) blockedKey(identifier string) string {
++	return fmt.Sprintf("blocked:%s", identifier)
++}

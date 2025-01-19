@@ -1,8 +1,8 @@
 package main
 
 import (
-	"Rate_Limiter/internal/config"
-	"Rate_Limiter/internal/server"
+	"github.com/valms/fc_rate_limiter/internal/config"
+	"github.com/valms/fc_rate_limiter/internal/server"
 	"log"
 )
 

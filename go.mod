@@ -1,4 +1,4 @@
-module Rate_Limiter
+module github.com/valms/fc_rate_limiter
 
 go 1.22
 

@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"Rate_Limiter/internal/service"
 	"github.com/gofiber/fiber/v2"
+	"github.com/valms/fc_rate_limiter/internal/service"
 )
 
 type Config struct {
