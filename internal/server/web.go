@@ -5,9 +5,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/valms/fc_rate_limiter/internal/cache"
 	"github.com/valms/fc_rate_limiter/internal/config"
+	"github.com/valms/fc_rate_limiter/internal/ratelimiter"
 	"github.com/valms/fc_rate_limiter/internal/repository/redis"
 	"github.com/valms/fc_rate_limiter/internal/server/middleware"
-	"github.com/valms/fc_rate_limiter/internal/service"
 	"net/http"
 )
 
@@ -19,7 +19,7 @@ func SetupWebServer(loadConfig *config.Config) *fiber.App {
 
 	operations, _ := redis.NewRedisOperations(context.Background(), redisClient)
 
-	rate, _ := service.NewLimiterService(operations, loadConfig)
+	rate, _ := ratelimiter.NewLimiterService(operations, loadConfig)
 
 	app.Use(middleware.Limiter(rate))
 

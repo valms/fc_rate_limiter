@@ -2,19 +2,26 @@ package middleware
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/valms/fc_rate_limiter/internal/service"
+	"github.com/valms/fc_rate_limiter/internal/ratelimiter"
 )
 
 type Config struct {
 }
 
-func Limiter(rate *service.RateLimiter) fiber.Handler {
+func Limiter(rate *ratelimiter.RateLimiter) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ip := c.IP()
+		apikey := c.Get("API_KEY")
 
-		ipBlocked, _ := rate.IsRateLimitByIP(ip)
+		var blocked bool
 
-		if ipBlocked {
+		if ip == "" {
+			blocked, _ = rate.IsRateLimitByIP(ip)
+		} else {
+			blocked, _ = rate.IsRateLimitByToken(apikey)
+		}
+
+		if blocked {
 			return c.Status(429).JSON(&fiber.Map{
 				"message": "you have reached the maximum number of requests or actions allowed within a certain time frame",
 			})

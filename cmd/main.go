@@ -7,7 +7,6 @@ import (
 )
 
 func main() {
-
 	loadConfig := config.LoadConfig()
 
 	if err := server.SetupWebServer(loadConfig).Listen(":" + loadConfig.Server.Port); err != nil {
