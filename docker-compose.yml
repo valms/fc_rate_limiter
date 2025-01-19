@@ -1,0 +1,27 @@
+services:
+    redis:
+        image: redis:alpine3.21
+        container_name: rate_redias
+        ports:
+            - "6379:6379"
+        networks:
+            - rate-limiter-network
+
+    rate-backend:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: rate-backend
+        ports:
+            - "8080:8080"
+        depends_on:
+            - redis
+        networks:
+            - rate-limiter-network
+        environment:
+            - REDIS_HOST=redis
+            - REDIS_PORT=6379
+
+networks:
+    rate-limiter-network:
+        driver: bridge
