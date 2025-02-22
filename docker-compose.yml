@@ -1,7 +1,9 @@
+version: '3.8'
+
 services:
     redis:
         image: redis:alpine3.21
-        container_name: rate_redias
+        container_name: rate_redis
         ports:
             - "6379:6379"
         networks:
@@ -21,6 +23,9 @@ services:
         environment:
             - REDIS_HOST=redis
             - REDIS_PORT=6379
+            - IP_LIMIT=5
+            - API_KEY_LIMIT=5
+            - BLOCK_DURATION=60
 
 networks:
     rate-limiter-network:

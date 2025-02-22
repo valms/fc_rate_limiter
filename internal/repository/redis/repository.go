@@ -2,17 +2,18 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/redis/go-redis/v9"
 	"time"
 )
 
-type RedisRepository struct {
+type Repository struct {
 	ctx         context.Context
 	redisClient *redis.Client
 }
 
-func NewRedisOperations(ctx context.Context, redisClient *redis.Client) (*RedisRepository, error) {
+func NewRedisOperations(ctx context.Context, redisClient *redis.Client) (*Repository, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("context cannot be nil")
 	}
@@ -20,20 +21,20 @@ func NewRedisOperations(ctx context.Context, redisClient *redis.Client) (*RedisR
 		return nil, fmt.Errorf("redis cache cannot be nil")
 	}
 
-	return &RedisRepository{
+	return &Repository{
 		ctx:         ctx,
 		redisClient: redisClient,
 	}, nil
 }
 
-// GetCount retorna o valor atual do contador
-func (r *RedisRepository) GetCounter(key string) (int, error) {
+// GetCounter GetCount retorna o valor atual do contador
+func (r *Repository) GetCounter(key string) (int, error) {
 	if key == "" {
 		return 0, fmt.Errorf("key cannot be empty")
 	}
 
 	result, err := r.redisClient.Get(r.ctx, key).Int()
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		return 0, nil
 	}
 	if err != nil {
@@ -43,8 +44,8 @@ func (r *RedisRepository) GetCounter(key string) (int, error) {
 	return result, nil
 }
 
-// Increment incrementa o valor da chave em 1
-func (r *RedisRepository) IncrementCounter(key string) (int, error) {
+// IncrementCounter Increment incrementa o valor da chave em 1
+func (r *Repository) IncrementCounter(key string) (int, error) {
 	if key == "" {
 		return 0, fmt.Errorf("key cannot be empty")
 	}
@@ -56,8 +57,8 @@ func (r *RedisRepository) IncrementCounter(key string) (int, error) {
 	return int(result), nil
 }
 
-// Expire define um tempo de expiração para a chave
-func (r *RedisRepository) SetExpiration(key string, seconds int) error {
+// SetExpiration Expire define um tempo de expiração para a chave
+func (r *Repository) SetExpiration(key string, seconds int) error {
 	if key == "" {
 		return fmt.Errorf("key cannot be empty")
 	}
@@ -81,8 +82,8 @@ func (r *RedisRepository) SetExpiration(key string, seconds int) error {
 	return nil
 }
 
-// Exists verifica se uma chave existe
-func (r *RedisRepository) KeyExists(key string) (bool, error) {
+// KeyExists Exists verifica se uma chave existe
+func (r *Repository) KeyExists(key string) (bool, error) {
 	if key == "" {
 		return false, fmt.Errorf("key cannot be empty")
 	}
@@ -96,7 +97,7 @@ func (r *RedisRepository) KeyExists(key string) (bool, error) {
 }
 
 // Close fecha a conexão com o Redis
-func (r *RedisRepository) Close() error {
+func (r *Repository) Close() error {
 	if r.redisClient == nil {
 		return nil
 	}

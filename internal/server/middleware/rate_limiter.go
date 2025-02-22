@@ -15,10 +15,10 @@ func Limiter(rate *ratelimiter.RateLimiter) fiber.Handler {
 
 		var blocked bool
 
-		if ip == "" {
-			blocked, _ = rate.IsRateLimitByIP(ip)
-		} else {
+		if apikey != "" {
 			blocked, _ = rate.IsRateLimitByToken(apikey)
+		} else {
+			blocked, _ = rate.IsRateLimitByIP(ip)
 		}
 
 		if blocked {
