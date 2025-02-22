@@ -32,7 +32,7 @@ que utilize o Fiber.
 ## Configuração
 
 A configuração do rate limiter é feita através de variáveis de ambiente, que podem ser definidas no arquivo
-`docker-compose.yml` ou em um arquivo `.env`.
+`docker-compose.yml`.
 
 ### Variáveis de Ambiente
 
