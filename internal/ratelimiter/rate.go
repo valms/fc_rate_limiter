@@ -44,7 +44,7 @@ func (l *RateLimiter) IsRateLimitByIP(ip string) (bool, error) {
 	fmt.Printf("[Rate Limiter] IP %s - Uso Atual: %d/%d\n",
 		ip, currentCount, l.ipLimit)
 
-	if currentCount >= l.ipLimit {
+	if currentCount > l.ipLimit {
 		fmt.Printf("[Rate Limiter] IP %s excedeu o limite. Bloqueando por %d segundos\n",
 			ip, l.blockDuration)
 
@@ -70,7 +70,7 @@ func (l *RateLimiter) IsRateLimitByIP(ip string) (bool, error) {
 		}
 	}
 
-	if newCount >= l.ipLimit {
+	if newCount > l.ipLimit {
 		fmt.Printf("[Rate Limiter] IP %s atingiu o limite. Bloqueando por %d segundos\n",
 			ip, l.blockDuration)
 
@@ -105,7 +105,7 @@ func (l *RateLimiter) IsRateLimitByToken(token string) (bool, error) {
 	fmt.Printf("[Rate Limiter] API_KEY %s - Uso Atual: %d/%d\n",
 		token, currentCount, l.apiKeyLimit)
 
-	if currentCount >= l.apiKeyLimit {
+	if currentCount > l.apiKeyLimit {
 		fmt.Printf("[Rate Limiter] API_KEY %s excedeu o limite. Bloqueando por %d segundos\n",
 			token, l.blockDuration)
 
@@ -131,7 +131,7 @@ func (l *RateLimiter) IsRateLimitByToken(token string) (bool, error) {
 		}
 	}
 
-	if newCount >= l.apiKeyLimit {
+	if newCount > l.apiKeyLimit {
 		fmt.Printf("[Rate Limiter] API_KEY %s atingiu o limite. Bloqueando por %d segundos\n",
 			token, l.blockDuration)
 
